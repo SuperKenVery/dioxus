@@ -135,7 +135,7 @@ pub async fn serve_router(
     mut serve_callback: impl FnMut() -> Pin<Box<dyn Future<Output = Result<Router, anyhow::Error>>>>,
     addr: SocketAddr,
 ) {
-    dioxus_logger::initialize_default();
+    // dioxus_logger::initialize_default();
 
     let listener = TcpListener::bind(addr)
         .await
