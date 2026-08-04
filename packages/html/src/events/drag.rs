@@ -151,11 +151,7 @@ mod ser {
 
     impl crate::file_data::HasFileData for SerializedDragData {
         fn files(&self) -> Vec<FileData> {
-            self.data_transfer
-                .files
-                .iter()
-                .map(|f| FileData::new(f.clone()))
-                .collect()
+            self.data_transfer().files()
         }
     }
 
@@ -225,32 +221,4 @@ mod ser {
 pub trait HasDragData: HasMouseData + crate::HasFileData + crate::HasDataTransferData {
     /// return self as Any
     fn as_any(&self) -> &dyn std::any::Any;
-}
-
-impl_event! {
-    DragData;
-
-    /// ondrag
-    ondrag
-
-    /// ondragend
-    ondragend
-
-    /// ondragenter
-    ondragenter
-
-    /// ondragexit
-    ondragexit
-
-    /// ondragleave
-    ondragleave
-
-    /// ondragover
-    ondragover
-
-    /// ondragstart
-    ondragstart
-
-    /// ondrop
-    ondrop
 }

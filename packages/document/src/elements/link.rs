@@ -1,6 +1,6 @@
 use super::*;
 use crate::document;
-use dioxus_core::{use_hook, VNode};
+use dioxus_core::{VNode, use_hook};
 use dioxus_html as dioxus_elements;
 
 #[non_exhaustive]
@@ -20,7 +20,7 @@ pub struct LinkProps {
     pub disabled: Option<bool>,
     pub r#as: Option<String>,
     pub sizes: Option<String>,
-    /// Links are deduplicated by their href attribute
+    /// Links are deduplicated by their href and rel attributes
     pub href: Option<String>,
     pub crossorigin: Option<String>,
     pub referrerpolicy: Option<String>,
@@ -121,10 +121,10 @@ pub fn Link(props: LinkProps) -> Element {
     use_hook(|| {
         let document = document();
         let mut insert_link = document.create_head_component();
-        if let Some(href) = &props.href {
-            if !should_insert_link(href) {
-                insert_link = false;
-            }
+        if let Some(href) = &props.href
+            && !should_insert_link(href, props.rel.as_deref())
+        {
+            insert_link = false;
         }
 
         if !insert_link {
@@ -137,11 +137,42 @@ pub fn Link(props: LinkProps) -> Element {
     VNode::empty()
 }
 
+/// Insert a stylesheet `<link>` element into the head of the current document.
+///
+/// The stylesheet is deduplicated within each document: calling this multiple times with the
+/// same href (or rendering a [`Link`] component with the same href and `rel="stylesheet"`)
+/// only inserts the link once per document.
+pub fn insert_stylesheet(href: &str) {
+    // Deduplicate before creating the head component so that repeated calls with the same
+    // href (e.g. on every render) don't create or consume extra hydration entries.
+    if !should_insert_link(href, Some("stylesheet")) {
+        return;
+    }
+
+    let document = document();
+    if !document.create_head_component() {
+        return;
+    }
+
+    document.create_link(
+        LinkProps::builder()
+            .rel(Some("stylesheet".to_string()))
+            .href(Some(href.to_string()))
+            .build(),
+    );
+}
+
 #[derive(Default, Clone)]
 struct LinkContext(DeduplicationContext);
 
-fn should_insert_link(href: &str) -> bool {
+fn should_insert_link(href: &str, rel: Option<&str>) -> bool {
+    // Include rel in the deduplication key so that the same href can be used
+    // with different rel values (e.g., rel="preload" and rel="stylesheet")
+    let key = match rel {
+        Some(rel) => format!("{href}|{rel}"),
+        None => href.to_string(),
+    };
     get_or_insert_root_context::<LinkContext>()
         .0
-        .should_insert(href)
+        .should_insert(&key)
 }

@@ -29,7 +29,7 @@
 //! };
 //!```
 
-use crate::renderer::{str_truthy, BOOL_ATTRS};
+use crate::renderer::{BOOL_ATTRS, ssr_attr_name, str_truthy};
 use dioxus_core::{TemplateAttribute, TemplateNode, VNode};
 use std::{fmt::Write, ops::AddAssign};
 
@@ -163,7 +163,7 @@ impl StringCache {
 
         let mut cur_path = vec![];
 
-        for (root_idx, root) in template.template.roots.iter().enumerate() {
+        for (root_idx, root) in template.template.roots().iter().enumerate() {
             from_template_recursive(
                 root,
                 &mut cur_path,
@@ -210,11 +210,12 @@ fn from_template_recursive(
                         value,
                         namespace,
                     } => {
-                        if *name == "dangerous_inner_html" {
+                        let name = ssr_attr_name(name);
+                        if name == "dangerous_inner_html" {
                             inner_html = Some(value);
                         } else if let Some("style") = namespace {
                             styles.push((name, value));
-                        } else if BOOL_ATTRS.contains(name) {
+                        } else if BOOL_ATTRS.contains(&name) {
                             if str_truthy(value) {
                                 write!(
                                     chain,

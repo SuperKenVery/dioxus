@@ -1,15 +1,15 @@
 #![allow(unreachable_code)]
 
-use crate::{reqwest_error_to_request_error, StreamingError};
+use crate::{StreamingError, reqwest_error_to_request_error};
 use bytes::Bytes;
 use dioxus_fullstack_core::RequestError;
 use futures::Stream;
 use futures::{TryFutureExt, TryStreamExt};
 use headers::{ContentType, Header};
-use http::{response::Parts, Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode};
+use http::{Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, response::Parts};
 use send_wrapper::SendWrapper;
-use serde::{de::DeserializeOwned, Serialize};
-use std::sync::{LazyLock, Mutex, OnceLock};
+use serde::{Serialize, de::DeserializeOwned};
+use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
 use std::{fmt::Display, pin::Pin, prelude::rust_2024::Future};
 use url::Url;
 
@@ -497,28 +497,33 @@ impl ClientResponse {
 /// Set the root server URL that all server function paths are relative to for the client.
 ///
 /// If this is not set, it defaults to the origin.
+///
+/// This may be called more than once; the most recent value wins. Requests read
+/// the URL as they are built, so a change applies to the next server function
+/// call. Clients that talk to more than one backend can switch between them
+/// without restarting the process.
 pub fn set_server_url(url: &'static str) {
-    ROOT_URL.set(url).unwrap();
+    *ROOT_URL.write().unwrap() = Some(url);
 }
 
 /// Returns the root server URL for all server functions.
 pub fn get_server_url() -> &'static str {
-    ROOT_URL.get().copied().unwrap_or("")
+    ROOT_URL.read().unwrap().unwrap_or("")
 }
 
-static ROOT_URL: OnceLock<&'static str> = OnceLock::new();
+static ROOT_URL: RwLock<Option<&'static str>> = RwLock::new(None);
 
-/// Delete the extra request headers for all servers functions.
+/// Delete the extra request headers for all server functions.
 pub fn clear_request_headers() {
     REQUEST_HEADERS.lock().unwrap().clear();
 }
 
-/// Set the extra request headers for all servers functions.
+/// Set the extra request headers for all server functions.
 pub fn set_request_headers(headers: HeaderMap) {
     *REQUEST_HEADERS.lock().unwrap() = headers;
 }
 
-/// Returns the extra request headers for all servers functions.
+/// Returns the extra request headers for all server functions.
 pub fn get_request_headers() -> HeaderMap {
     REQUEST_HEADERS.lock().unwrap().clone()
 }
